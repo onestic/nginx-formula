@@ -1,8 +1,5 @@
 {% from "nginx/map.jinja" import nginx as nginx_map with context %}
 
-# Source currently requires package 'build-essential' which is Debian based.
-# Will not work with os_family RedHat!
-# TODO- Someone with a RedHat system please update this to work on RedHat
 {% set nginx = pillar.get('nginx', {}) -%}
 {% set use_sysvinit = nginx.get('use_sysvinit', nginx_map['use_sysvinit']) %}
 {% set version = nginx.get('version', '1.6.2') -%}
@@ -15,7 +12,7 @@
 {% set conf_dir = nginx.get('conf_dir', nginx_map['conf_dir']) -%}
 {% set conf_only = nginx.get('conf_only', false) -%}
 {% set log_dir = nginx.get('log_dir', nginx_map['log_dir']) -%}
-{% set pid_path = nginx.get('pid_path', '/var/run/nginx.pid') -%}
+{% set pid_path = nginx.get('pid_path', nginx_map['pid_path']) -%}
 {% set lock_path = nginx.get('lock_path', '/var/lock/nginx.lock') -%}
 {% set sbin_dir = nginx.get('sbin_dir', nginx_map['sbin_dir']) -%}
 
@@ -67,12 +64,22 @@ nginx_user:
     - directory
     - makedirs: True
 
+get-build-tools:
+{% if grains['saltversion'] < '2015.8.0' and grains['os_family'] == 'RedHat' %}
+  module.run:
+    - name: pkg.group_install
+    - m_name: {{ nginx_map.group_pkg }}
+{% else %}
+  {{ nginx_map.group_action }}:
+    - name: {{ nginx_map.group_pkg }}
+{% endif %}
+
 get-nginx:
   pkg.installed:
     - names:
-      - libpcre3-dev
-      - build-essential
-      - libssl-dev
+      - {{ nginx_map.libpcre_dev }}
+      - {{ nginx_map.libssl_dev }}
+
   file.managed:
     - name: {{ nginx_package }}
     - source: {{ tarball_url }}
@@ -163,7 +170,11 @@ nginx:
     - cwd: {{ nginx_source }}
     - names:
       - (
+        {%- if nginx.get('debug_symbols', false) %}
+        CFLAGS="-g -O0" ./configure --conf-path={{ conf_dir }}/nginx.conf
+        {%- else %}
         ./configure --conf-path={{ conf_dir }}/nginx.conf
+        {%- endif %}
         --sbin-path={{ sbin_dir }}/nginx
         --user={{ nginx_map.default_user }}
         --group={{ nginx_map.default_group }}
@@ -209,7 +220,7 @@ nginx:
 {% if use_sysvinit %}
     - watch_in:
       {% set logger_types = ('access', 'error') %}
-      {% for log_type in logger_types %}  
+      {% for log_type in logger_types %}
       - service: nginx-logger-{{ log_type }}
       {% endfor %}
 {% endif %}
@@ -218,6 +229,7 @@ nginx:
       {% for name, module in nginx.get('modules', {}).items() -%}
       - file: get-nginx-{{name}}
       {% endfor %}
+{% if use_sysvinit %}
   file:
     - managed
     - template: jinja
@@ -230,6 +242,7 @@ nginx:
       service_name: {{ service_name }}
       sbin_dir: {{ sbin_dir }}
       pid_path: {{ pid_path }}
+{% endif %}
   service:
 {% if service_enable %}
     - running

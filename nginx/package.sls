@@ -23,11 +23,12 @@ nginx-old-init:
 {% endif %}
   module.wait:
     - name: cmd.run
-    - cmd: kill `cat /var/run/nginx.pid`
+    - cmd: sh -c "kill `cat /var/run/nginx.pid`"
     - watch:
       - file: nginx-old-init
     - require_in:
       - file: nginx
+    - onlyif: [ -e /var/run/nginx.pid ]
 
 # RedHat requires the init file in place to chkconfig off
 {% if nginx['disable_before_rename'] %}
@@ -101,7 +102,7 @@ nginx:
     - require:
       - pkg: nginx
       - file: nginx-old-init
-      - module: nginx-old-init      
+      - module: nginx-old-init
 {% endif %}
   service.running:
     - enable: True
