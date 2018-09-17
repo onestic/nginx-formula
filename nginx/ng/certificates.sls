@@ -34,7 +34,7 @@ generate_nginx_dhparam_{{ dh_param }}_key:
 
 nginx_{{ domain }}_ssl_certificate:
   file.managed:
-    - name: {{ certificates_path }}/{{ domain }}.crt
+    - name: {{ certificates_path }}/{{ domain }}.pem
     - makedirs: True
     - contents_pillar: nginx:ng:certificates:{{ domain }}:public_cert
     - watch_in:
