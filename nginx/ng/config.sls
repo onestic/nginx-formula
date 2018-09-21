@@ -4,13 +4,12 @@
 
 {% from 'nginx/ng/map.jinja' import nginx, sls_block with context %}
 
-{% if nginx.install_from_source %}
 nginx_log_dir:
   file.directory:
     - name: /var/log/nginx
-    - user: {{ nginx.server.config.user }}
-    - group: {{ nginx.server.config.user }}
-{% endif %}
+    - user: root
+    - group: root
+    - mode: 755
 
 {% if 'source_path' in nginx.server.config %}
 {% set source_path = nginx.server.config.source_path %}
